@@ -18,12 +18,14 @@
 You can run the program in two ways:
 
 1. Without arguments: It will look for `quotes.csv` in the same directory as the executable
-   ```
+
+   ```zsh
    random-quotes
    ```
 
 2. With a full path to the quotes file:
-   ```
+
+   ```zsh
    random-quotes /Users/kevin/.kevin/code/random-quotes/quotes.csv
    ```
 
