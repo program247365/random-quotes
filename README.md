@@ -31,6 +31,6 @@ You can run the program in two ways:
 
 ## Future Things?
 
-* Fix TODOs in program, once I get better at Rust ;)
-* Allow specifying the filename via command-line options
+* ~~Fix TODOs in program, once I get better at Rust ;)~~
+* ~~Allow specifying the filename via command-line options~~
 * Integrate with Google Spreadsheets to fetch quotes
