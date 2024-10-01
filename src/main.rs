@@ -50,5 +50,5 @@ fn get_quote() -> String {
     let quote = fields.next().unwrap_or("").trim();
     let author = fields.next().unwrap_or("").trim();
 
-    format!("{} - {}", quote, author)
+    format!("\"{}\" - {}", quote, author)
 }
