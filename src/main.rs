@@ -1,34 +1,34 @@
 use rand::seq::IteratorRandom; // 0.7.3
 use std::fs::File;
 use csv::ReaderBuilder;
+use std::env;
 
-fn main() -> Result<(), std::io::Error> {
-    println!("{}", get_quote());
-    Ok(())
+fn main() {
+    let exec_path = env::current_exe().expect("Failed to get executable path");
+    let quotes_path = exec_path.parent().unwrap().join("quotes.csv");
+
+    let _quotes = match std::fs::read_to_string(&quotes_path) {
+        Ok(content) => content,
+        Err(e) => {
+            eprintln!("Error reading {}: {}", quotes_path.display(), e);
+            eprintln!("Make sure quotes.txt exists in the same directory as the executable.");
+            return;
+        }
+    };
+
+    println!("{}", get_quote("quotes.csv"));
 }
 
-fn get_exec_name() -> String {
-    std::env::current_exe()
-        .expect("Can't get the exec path")
-        .file_name()
-        .expect("Can't get the exec name")
-        .to_string_lossy()
-        .into_owned()
-}
+fn get_quote(file_path: &str) -> String {
+    let exe_path = env::current_exe().expect("Failed to get executable path");
+    let exe_dir = exe_path.parent().expect("Failed to get executable directory");
+    let quotes_path = exe_dir.join("quotes.csv");
 
-fn get_current_exe_path() -> String {
-    let path = std::env::current_exe().unwrap();
-    let dir: String = path.display().to_string();
-    let exec_name: String = get_exec_name().to_owned();
-    dir.to_owned()
-        .to_string()
-        .replace(&exec_name, "")
-        .replace("//", "/random-quotes/")
-    // TOOD: find a more dynamic way to do this ^
-}
-
-fn get_quote() -> String {
-    let file_name = get_current_exe_path() + "quotes.csv";
+    let file_name = if file_path.is_empty() {
+        quotes_path.to_str().unwrap().to_string()
+    } else {
+        file_path.to_string()
+    };
     let file = File::open(&file_name)
         .unwrap_or_else(|e| panic!("(;_;) file not found: {}: {}", &file_name, e));
 
