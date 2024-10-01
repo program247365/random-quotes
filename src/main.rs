@@ -35,20 +35,20 @@ fn get_quote() -> String {
         .unwrap_or_else(|e| panic!("(;_;) file not found: {}: {}", &file_name, e));
     let f = BufReader::new(f);
 
-    let lines = f.lines().map(|l| l.expect("Couldn't read line"));
+    let mut lines = f.lines().map(|l| l.expect("Couldn't read line"));
+
+    // Skip the first line
+    // with the header
+    lines.next();
+
     let line = lines
         .choose(&mut rand::thread_rng())
-        .expect("File had no lines");
+        .expect("File had no lines (or only a header)");
 
-    // TODO: Figure out how to replace only last comma in line
-    // not every comma
-    let parsed_string: String = line
-        .chars()
-        .map(|x| match x {
-            ',' => '–',
-            _ => x,
-        })
-        .collect();
+    // Parse the CSV line
+    let mut fields = line.split(',');
+    let quote = fields.next().unwrap_or("").trim();
+    let author = fields.next().unwrap_or("").trim();
 
-    parsed_string
+    format!("{} - {}", quote, author)
 }
