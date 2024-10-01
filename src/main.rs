@@ -1,8 +1,6 @@
 use rand::seq::IteratorRandom; // 0.7.3
-use std::{
-    fs::File,
-    io::{BufRead, BufReader},
-};
+use std::fs::File;
+use csv::ReaderBuilder;
 
 fn main() -> Result<(), std::io::Error> {
     println!("{}", get_quote());
@@ -31,24 +29,26 @@ fn get_current_exe_path() -> String {
 
 fn get_quote() -> String {
     let file_name = get_current_exe_path() + "quotes.csv";
-    let f = File::open(&file_name)
+    let file = File::open(&file_name)
         .unwrap_or_else(|e| panic!("(;_;) file not found: {}: {}", &file_name, e));
-    let f = BufReader::new(f);
 
-    let mut lines = f.lines().map(|l| l.expect("Couldn't read line"));
+    let mut rdr = ReaderBuilder::new()
+        .has_headers(true)
+        .flexible(true)  // Allow flexible number of fields
+        .from_reader(file);
 
-    // Skip the first line
-    // with the header
-    lines.next();
+    let records: Vec<csv::StringRecord> = rdr.records().filter_map(Result::ok).collect();
 
-    let line = lines
+    if records.is_empty() {
+        return "No quotes available.".to_string();
+    }
+
+    let record = records.iter()
         .choose(&mut rand::thread_rng())
-        .expect("File had no lines (or only a header)");
+        .expect("Failed to choose a random quote");
 
-    // Parse the CSV line
-    let mut fields = line.split(',');
-    let quote = fields.next().unwrap_or("").trim();
-    let author = fields.next().unwrap_or("").trim();
+    let quote = record.get(0).unwrap_or("").trim();
+    let author = record.get(1).unwrap_or("").trim();
 
     format!("\"{}\" - {}", quote, author)
 }
