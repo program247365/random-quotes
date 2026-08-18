@@ -7,27 +7,52 @@
 ## Setup
 
 1. `cargo build --release`
-2. Move `random-quotes` binary to a location on your path (e.g. $HOME/bin/random-quotes)
-3. Create a `quotes.csv` file formatted with `quote goes here,author of quote` on each line
-4. Place the `quotes.csv` file next to the `random-quotes` binary, or use a full path (see Usage below)
-5. Add the binary call to the bottom of ~/.zshrc or ~/.bashrc (e.g. $HOME/bin/random-quotes) and save
-6. Reload your terminal, and voilà, you have a random quote whenever you open the terminal!
+2. Move the `random-quotes` binary somewhere on your `$PATH` (e.g. `$HOME/bin/random-quotes`)
+3. Put a `quotes.csv` next to the binary, or pass a path to one (see Usage)
+4. Add the binary call to the bottom of `~/.zshrc` or `~/.bashrc` and save
+5. Reload your terminal, and voilà, you have a random quote whenever you open the terminal!
 
 ## Usage
 
-You can run the program in two ways:
+```zsh
+random-quotes                    # reads quotes.csv sitting next to the binary
+random-quotes ~/my-quotes.csv    # reads the file you name
+```
 
-1. Without arguments: It will look for `quotes.csv` in the same directory as the executable
+Exits `1` with a message on stderr if the file is missing or has no quotes, so a
+broken setup never derails your shell startup.
 
-   ```zsh
-   random-quotes
-   ```
+## Quotes file format
 
-2. With a full path to the quotes file:
+RFC 4180 CSV, one quote per row, UTF-8:
 
-   ```zsh
-   random-quotes /Users/kevin/.kevin/code/random-quotes/quotes.csv
-   ```
+```csv
+"quote","author"
+"Slow is smooth, smooth is fast.","Navy Seals"
+"He said ""hello, world"" and left.","Anonymous"
+```
+
+- A `quote,author` header row is optional — it is skipped if present.
+- Quoting every field is the safe default: commas, semicolons, colons, dashes,
+  ellipses, and any Unicode all pass through untouched.
+- A literal `"` inside a quote is escaped by doubling it (`""`), per RFC 4180.
+  On output it is printed as a single quote, so the outer pair always marks
+  where the quote begins and ends:
+
+  ```
+  "He said ""hello, world"" and left.","O'Brien, Jr."
+    prints as:  "He said 'hello, world' and left." - O'Brien, Jr.
+  ```
+- Fields are trimmed, blank rows are skipped, and a trailing empty third column
+  (from older exports) is ignored.
+
+## Development
+
+```zsh
+cargo test          # unit + CLI integration tests
+cargo fmt --check
+cargo clippy --all-targets -- -D warnings
+```
 
 ## Future Things?
 
