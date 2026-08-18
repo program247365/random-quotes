@@ -5,9 +5,72 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::{env, process};
 
+const HELP: &str = concat!(
+    "random-quotes ",
+    env!("CARGO_PKG_VERSION"),
+    r#"
+Print one random quote from a CSV file.
+
+USAGE
+  random-quotes [FILE]      Print a random quote
+  random-quotes --help      Show this help
+  random-quotes --version   Show the version
+
+ARGUMENTS
+  FILE   Path to a quotes CSV. Defaults to quotes.csv beside the binary.
+
+FILE FORMAT
+  RFC 4180 CSV, UTF-8, one quote per row. Header row optional.
+
+    "quote","author"
+    "Slow is smooth, smooth is fast.","Navy Seals"
+
+  Escape a literal " by doubling it (""). It prints as a single quote
+  so the outer pair always marks where the quote begins and ends.
+
+EXIT STATUS
+  0  quote printed      1  file missing or empty      2  bad usage
+
+SHELL STARTUP
+  Add `random-quotes` to ~/.zshrc.local or ~/.bashrc."#
+);
+
+#[derive(Debug, PartialEq)]
+enum Command {
+    Quote(Option<String>),
+    Help,
+    Version,
+    Usage(String),
+}
+
+fn parse_args(args: &[String]) -> Command {
+    match args {
+        [] => Command::Quote(None),
+        [one] => match one.as_str() {
+            "--help" | "-h" | "help" => Command::Help,
+            "--version" | "-V" => Command::Version,
+            flag if flag.starts_with('-') => Command::Usage(format!("unknown option '{flag}'")),
+            path => Command::Quote(Some(path.to_string())),
+        },
+        _ => Command::Usage("expected at most one FILE argument".to_string()),
+    }
+}
+
 fn main() {
-    let path = quotes_path(env::args().nth(1));
-    match pick_quote(&path) {
+    let args: Vec<String> = env::args().skip(1).collect();
+    match parse_args(&args) {
+        Command::Quote(file) => print_quote(file),
+        Command::Help => println!("{HELP}"),
+        Command::Version => println!("random-quotes {}", env!("CARGO_PKG_VERSION")),
+        Command::Usage(message) => {
+            eprintln!("random-quotes: {message}\n\n{HELP}");
+            process::exit(2);
+        }
+    }
+}
+
+fn print_quote(file: Option<String>) {
+    match pick_quote(&quotes_path(file)) {
         Ok(line) => println!("{line}"),
         Err(message) => {
             eprintln!("random-quotes: {message}");
@@ -396,5 +459,89 @@ mod tests {
                 .count(),
             2
         );
+    }
+
+    fn args(list: &[&str]) -> Vec<String> {
+        list.iter().map(|s| (*s).to_string()).collect()
+    }
+
+    #[test]
+    fn no_arguments_asks_for_a_quote_from_the_default_file() {
+        assert_eq!(parse_args(&args(&[])), Command::Quote(None));
+    }
+
+    #[test]
+    fn a_lone_path_asks_for_a_quote_from_that_file() {
+        assert_eq!(
+            parse_args(&args(&["/tmp/mine.csv"])),
+            Command::Quote(Some("/tmp/mine.csv".to_string()))
+        );
+    }
+
+    #[test]
+    fn every_spelling_of_help_asks_for_help() {
+        for flag in ["--help", "-h", "help"] {
+            assert_eq!(parse_args(&args(&[flag])), Command::Help, "{flag}");
+        }
+    }
+
+    #[test]
+    fn every_spelling_of_version_asks_for_the_version() {
+        for flag in ["--version", "-V"] {
+            assert_eq!(parse_args(&args(&[flag])), Command::Version, "{flag}");
+        }
+    }
+
+    #[test]
+    fn an_unknown_option_is_a_usage_error_naming_the_option() {
+        let Command::Usage(message) = parse_args(&args(&["--bogus"])) else {
+            panic!("expected a usage error");
+        };
+        assert!(message.contains("--bogus"), "{message}");
+    }
+
+    #[test]
+    fn extra_arguments_are_a_usage_error() {
+        assert!(matches!(
+            parse_args(&args(&["a.csv", "b.csv"])),
+            Command::Usage(_)
+        ));
+    }
+
+    #[test]
+    fn a_filename_that_looks_like_a_flag_is_still_rejected() {
+        assert!(matches!(parse_args(&args(&["-x"])), Command::Usage(_)));
+    }
+
+    #[test]
+    fn the_help_text_documents_what_an_agent_needs() {
+        for section in ["USAGE", "ARGUMENTS", "FILE FORMAT", "EXIT STATUS"] {
+            assert!(HELP.contains(section), "help is missing {section}");
+        }
+        assert!(HELP.contains(env!("CARGO_PKG_VERSION")));
+    }
+
+    /// `make help` builds its listing from the `## ` comments, so a target
+    /// without one is invisible to anyone -- or anything -- reading the output.
+    #[test]
+    fn every_makefile_target_documents_itself() {
+        const MAKEFILE: &str = include_str!("../Makefile");
+        let phony = MAKEFILE
+            .lines()
+            .find_map(|line| line.strip_prefix(".PHONY:"))
+            .expect("Makefile has no .PHONY line");
+        let targets: Vec<&str> = phony.split_whitespace().collect();
+        assert!(targets.len() > 5, "suspiciously few targets: {targets:?}");
+
+        for target in targets {
+            let rule = MAKEFILE
+                .lines()
+                .find(|line| line.starts_with(&format!("{target}:")))
+                .unwrap_or_else(|| panic!("`{target}` is in .PHONY but has no rule"));
+            assert!(
+                rule.contains("## "),
+                "`{target}` has no `## ` description, so it is missing from make help"
+            );
+        }
     }
 }

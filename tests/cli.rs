@@ -79,3 +79,59 @@ fn a_quote_full_of_punctuation_survives_the_round_trip_to_the_terminal() {
         "delimiters are ambiguous: {stdout}"
     );
 }
+
+#[test]
+fn help_goes_to_stdout_and_exits_zero() {
+    for flag in ["--help", "-h", "help"] {
+        let (stdout, stderr, ok) = run(&[flag], "/");
+        assert!(ok, "{flag} exited non-zero: {stderr}");
+        assert!(stderr.is_empty(), "{flag} wrote to stderr: {stderr}");
+        for section in ["USAGE", "ARGUMENTS", "FILE FORMAT", "EXIT STATUS"] {
+            assert!(stdout.contains(section), "{flag} help is missing {section}");
+        }
+    }
+}
+
+#[test]
+fn an_unknown_option_prints_help_on_stderr_and_exits_two() {
+    let out = Command::new(BIN)
+        .arg("--bogus")
+        .current_dir("/")
+        .output()
+        .expect("failed to run random-quotes");
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    let stderr = String::from_utf8(out.stderr).unwrap();
+
+    assert_eq!(out.status.code(), Some(2), "wrong exit code");
+    assert!(stdout.is_empty(), "help leaked to stdout: {stdout}");
+    assert!(
+        stderr.contains("--bogus"),
+        "error does not name the option: {stderr}"
+    );
+    assert!(stderr.contains("USAGE"), "no help on stderr: {stderr}");
+}
+
+#[test]
+fn version_reports_the_crate_version() {
+    let (stdout, _, ok) = run(&["--version"], "/");
+    assert!(ok);
+    assert_eq!(
+        stdout.trim(),
+        format!("random-quotes {}", env!("CARGO_PKG_VERSION"))
+    );
+}
+
+/// ~/.zshrc.local and the Neovim snacks dashboard both invoke the binary with
+/// no arguments and expect a quote. Adding --help must never change that.
+#[test]
+fn bare_invocation_prints_a_quote_and_never_the_help_text() {
+    let beside = PathBuf::from(BIN).with_file_name("quotes.csv");
+    std::fs::copy(concat!(env!("CARGO_MANIFEST_DIR"), "/quotes.csv"), &beside).unwrap();
+
+    let (stdout, stderr, ok) = run(&[], "/");
+
+    assert!(ok, "exited non-zero: {stderr}");
+    assert!(stdout.starts_with('"'), "not a quote: {stdout:?}");
+    assert!(!stdout.contains("USAGE"), "printed help instead of a quote");
+    assert_eq!(stdout.lines().count(), 1, "expected one line: {stdout:?}");
+}

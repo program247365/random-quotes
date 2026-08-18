@@ -6,21 +6,67 @@
 
 ## Setup
 
-1. `cargo build --release`
-2. Move the `random-quotes` binary somewhere on your `$PATH` (e.g. `$HOME/bin/random-quotes`)
-3. Put a `quotes.csv` next to the binary, or pass a path to one (see Usage)
-4. Add the binary call to the bottom of `~/.zshrc` or `~/.bashrc` and save
-5. Reload your terminal, and voilà, you have a random quote whenever you open the terminal!
+```zsh
+git clone git@github.com:program247365/random-quotes.git
+cd random-quotes
+make install
+```
+
+`make install` builds an optimized binary and installs it, together with
+`quotes.csv`, into `$PREFIX` (default `~/.kevin/bin`). It then runs the
+installed binary to prove the install works, and warns if `$PREFIX` is not on
+your `PATH`.
+
+```zsh
+make install PREFIX=~/bin   # install somewhere else
+make uninstall              # remove both files from $PREFIX
+```
+
+To print a quote whenever you open a terminal, add the binary to your shell
+startup file:
+
+```zsh
+echo 'random-quotes' >> ~/.zshrc.local
+```
+
+### Updating
+
+Re-run `make install`. It overwrites both the binary and `quotes.csv` in place,
+so there is nothing else to clean up:
+
+```zsh
+git pull && make install
+```
 
 ## Usage
 
 ```zsh
-random-quotes                    # reads quotes.csv sitting next to the binary
-random-quotes ~/my-quotes.csv    # reads the file you name
+random-quotes              # print a random quote
+random-quotes ~/mine.csv   # print one from a specific file
+random-quotes --help       # full help (also -h, help)
+random-quotes --version    # print the version (also -V)
 ```
 
-Exits `1` with a message on stderr if the file is missing or has no quotes, so a
-broken setup never derails your shell startup.
+With no `FILE`, it reads `quotes.csv` from the directory the binary lives in,
+so it works from any working directory.
+
+| Exit | Meaning |
+|------|---------|
+| `0`  | a quote was printed |
+| `1`  | the quotes file is missing or has no quotes |
+| `2`  | bad usage — the error and full help go to stderr |
+
+Because a missing file exits non-zero with a message on stderr rather than
+crashing, a broken install never derails your shell startup.
+
+### Who calls this
+
+Running the bare command prints a quote, and that behaviour is load-bearing —
+a regression test in `tests/cli.rs` pins it. Known callers:
+
+- `~/.zshrc.local` — prints a quote on every new shell
+- `~/.dotfiles/config/lua/plugins/dashboard.lua` — pipes the quote into the
+  Neovim `snacks.nvim` dashboard header
 
 ## Quotes file format
 
@@ -48,11 +94,25 @@ RFC 4180 CSV, one quote per row, UTF-8:
 
 ## Development
 
+`make` on its own prints every target it can run:
+
 ```zsh
-cargo test          # unit + CLI integration tests
-cargo fmt --check
-cargo clippy --all-targets -- -D warnings
+make            # same as make help
+make check      # format check + clippy + tests, i.e. everything CI runs
+make test       # tests only
+make fmt        # format in place
+make lint       # clippy, warnings treated as errors
+make run ARGS=--help
+make release
+make clean
 ```
+
+Targets document themselves: `make help` builds its listing from the `##`
+comments in the `Makefile`, and a test fails if any target lacks one.
+
+Tests live in two places — unit tests in `src/main.rs` and CLI tests in
+`tests/cli.rs` that drive the compiled binary. `tests/fixtures/legacy-quotes.csv`
+is the original 2019 quotes file, kept so the old format stays readable.
 
 ## Future Things?
 
